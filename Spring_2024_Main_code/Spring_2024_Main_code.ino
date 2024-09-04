@@ -88,8 +88,9 @@ byte mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x40, 0x4F};
 IPAddress ip(192, 168, 0, 177);
 IPAddress myDns(192, 168, 0, 1);
 
-EthernetClient client;
-
+/*
+EthernetClient client; //No need since using a new esp32 that don't require ehternet
+*/
 
 //--ThingSpeak--
 unsigned long myChannelNumber = 1646406;
