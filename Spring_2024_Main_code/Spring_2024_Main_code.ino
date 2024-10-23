@@ -69,32 +69,28 @@
  */
 
 #include <Ezo_i2c.h>                        // include the EZO I2C library from https://github.com/Atlas-Scientific/Ezo_I2c_lib
-#include <Wire.h>                           // enable I2C.
-#include <Ethernet.h>                       // for internet shield
+#include <Wire.h>                           // enable I2C
 #include "ThingSpeak.h"                     // always include thingspeak header file after other header files and custom macros
-#include "DHT.h"                            // For humidity sensor
-
+#include <WiFi.h>
+#include <Adafruit_AHTX0.h>
+#include <Adafruit_NeoPixel.h>
 
 //--Status LED--
 #define BLINK_FREQUENCY 250                 // the frequency of the led blinking, in milliseconds
 unsigned long next_blink_time;              // holds the next time the led should change state
 boolean led_state = LOW;                    // keeps track of the current led state
 
-
 //--Network--
-byte mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x40, 0x4F};
+const char* ssid = "WAVLINK-N";
+const char* password = "epics@urbanfarm2018";
+int flag = 0;
+int count = 0;
 
-// Set the static IP address to use if the DHCP fails to assign
-IPAddress ip(192, 168, 0, 177);
-IPAddress myDns(192, 168, 0, 1);
-
-/*
-EthernetClient client; //No need since using a new esp32 that don't require ehternet
-*/
+WiFiClient client;
 
 //--ThingSpeak--
-unsigned long myChannelNumber = 1646406;
-const char * myWriteAPIKey = "PI0UW7PG786YHESL";
+unsigned long myChannelNumber = 2701552;
+const char * myWriteAPIKey = "SHGQLQJJJX4H1ALB";
 // timer
 #define UPLOAD_FREQUENCY 20000              // frequency of uploading to ThingSpeak in milliseconds (ThingSpeak only allow upload every 15 seconds (15000 millis))
 unsigned long next_upload = 0;              // time to upload the next set of data
@@ -146,9 +142,7 @@ const float C1 = 1.009249522e-03, C2 = 2.378405444e-04, C3 = 2.019202697e-07;   
 
 //--Humidity and air temperature--
 // setups
-#define DHTPIN 2                            // what pin we're connected to (Digital)
-#define DHTTYPE DHT22                       // DHT 22  (AM2302)
-DHT hum_sen(DHTPIN, DHTTYPE);               // humidity sensor DHT object
+Adafruit_AHTX0 aht;
 // globals
 float humidity;                             // global to hold humidity
 float air_Tc;                               // global to hold air temperature in Celsius
@@ -184,45 +178,16 @@ unsigned long pump_end_time = 0;           // time when pump was last turned off
 
 
 void setup() {
-  Serial.begin(9600);                       // set the hardware serial port.
-  Serial.println("Starting setup...");
-  Ethernet.init(10);                        // most Arduino Ethernet hardware
   pinMode(13, OUTPUT);                      // set the led output pin
   Wire.begin();                             // enable I2C port.
-  hum_sen.begin();                          // set the dht for humidity sensor
   pinMode(PUMP_PIN,OUTPUT);                        // set the pump signal output pin
 
-  // Set up the ethernet connection
-  //Serial.println("Initialize Ethernet with DHCP:");
-  Serial.println("Connecting to the Internet...");
-  if (Ethernet.begin(mac) == 0) {
-    Serial.println("Failed to configure Ethernet using DHCP");
-    // Check for Ethernet hardware present
-    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-      Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :( [Please reset]");
-      while (true) {
-        delay(1); // do nothing, no point running without Ethernet hardware
-      }
-    }
-    else if (Ethernet.linkStatus() == LinkOFF) {
-      Serial.println("Ethernet cable is not connected.");
-    }
-    else {
-      // try to congifure using IP address instead of DHCP:
-      Serial.println("Cofigure using IP address...");
-      Ethernet.begin(mac, ip, myDns);
-    }
-  }
-  else {
-    Serial.print("  DHCP assigned IP ");
-    Serial.println(Ethernet.localIP());
-  }
-  // give the Ethernet shield a second to initialize:
-  Serial.println("Initializing...");
+  WiFi.disconnect(true);
   delay(1000);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
 
   // ThingSpeak
-  Serial.println("Connecting to ThingSpeak...");
   ThingSpeak.begin(client);  // Initialize ThingSpeak
 
   // Set the start read times. The code will check after waiting for sensor to start up and measure the data
@@ -232,25 +197,28 @@ void setup() {
   last_upload = millis();
   next_upload = millis() + UPLOAD_FREQUENCY;
   next_display = millis();                                      // display immediately
+  #if defined(NEOPIXEL_POWER)
+  
+  pinMode(NEOPIXEL_POWER, OUTPUT);
+  digitalWrite(NEOPIXEL_POWER, HIGH);
+  #endif
 }
 
 
 void loop() {
   // none of these functions block or delay the execution
+  
   // read sensors
   read_ezo();
   read_analog_temp();
   hum_read();
   // blink status update
   blink_led();
-  // Output to serial
-  update_display();
   // Upload to cloud
   upload_cloud();
   // Write to pump
   pump_write();
 }
-
 
 // blinks a led on pin 13. this function returns immediately, if it is not yet time to blink
 void blink_led() {
@@ -271,7 +239,7 @@ void read_ezo() {
       if (DISPLAY_INDIVIDUAL) {
         Serial.print("  ");
       }
-      _DO_reading = receive_reading(_do);                 // get the reading from the DO circuit
+      _DO_reading = receive_reading(_do) - 0.05;                 // get the reading from the DO circuit
       if (DISPLAY_INDIVIDUAL) {
         Serial.println();
       }
@@ -293,7 +261,7 @@ void read_ezo() {
 
 
 // function to decode the reading after the read command was issued
-float receive_reading(Ezo_board &Sensor) {
+/*float receive_reading(Ezo_board &Sensor) {
 
   if (DISPLAY_INDIVIDUAL) {                               // Check if we want to display individual data
     Serial.print(Sensor.get_name()); Serial.print(": ");  // print the name of the circuit getting the reading
@@ -321,7 +289,7 @@ float receive_reading(Ezo_board &Sensor) {
   }
 
   return Sensor.get_last_received_reading();              //return the sensor reading
-}
+}*/
 
 
 // function to read the temperature from temperature probe. Return if it is not the time to do it yet.
@@ -330,10 +298,7 @@ void read_analog_temp() {
     float temp_voltage;
     temp_voltage = analogRead(TEMP_PIN);                          // read voltage from analog pin
     probe_voltage = (temp_voltage/1023.0)*ARDUINO_VOLTAGE;        // set global variable for the probe sensor
-
-    if (DISPLAY_INDIVIDUAL) {
-      Serial.print("Temperature sensor: ");                       // print label for temperature reading to serial port
-    }
+    
     float Tc, Tf;                                                 // variables declaration for the temperature calculation
 
     Tc = old_temperature_code(temp_voltage);                      // run old code
@@ -379,31 +344,33 @@ void hum_read() {
   if (millis() >= next_hum_time) {
     // Reading temperature or humidity takes about 250 milliseconds!
     // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-    float h = hum_sen.readHumidity();
+    //float h = hum_sen.readHumidity();
+    sensors_event_t h, temp;
+    aht.getEvent(&h, &temp);
     // Read temperature as Celsius
-    float Tc = hum_sen.readTemperature();
-    float Tf = (Tc * 9.0)/ 5.0 + 32.0;
-
+    //float Tc = hum_sen.readTemperature();
+    float Tf = (temp.temperature * 9.0)/ 5.0 + 32.0;
+    /*
     // Check if any reads failed and exit early (to try again).
     if (isnan(h) || isnan(Tc)) {
       if (DISPLAY_INDIVIDUAL) {
         Serial.println("Failed to read from DHT sensor!");
       }
     }
-    else {
-      air_Tc = Tc;                        // set global air temperature in Celsius
+    else {*/
+      air_Tc = temp.temperature;                        // set global air temperature in Celsius
       air_Tf = Tf;                        // set global air temperature in Fahrenheit
-      humidity = h;                       // set global humidity
-      // Print the output to serial monitor
-      if (DISPLAY_INDIVIDUAL) {
-        Serial.print("Humidity: ");
-        Serial.print(h);
-        Serial.print(" %\t");
-        Serial.print("Temperature: ");
-        Serial.print(Tc);
-        Serial.println(" *C ");
+      humidity = h.relative_humidity;                       // set global humidity
+      if (flag == 1) {
+        pixels.fill(0x00FF00);//FFF000:yellow 000FFF:blue 00FF00:green
+        pixels.show();
+        delay(500);
       }
-    }
+      if (flag == 0) {
+        pixels.fill(0x000FFF);//FFF000:yellow 000FFF:blue 00FF00:green
+        pixels.show();
+        delay(500);
+      }
 
     next_hum_time = millis() + HUMIDITY_FREQUENCY;        // set the next read time
   }
@@ -424,7 +391,7 @@ void update_display() {
     }
     else if (pH_reading >= pH_max){
       Serial.print("   (ABOVE OPTIMAL PH)");
-    }
+    } 
     Serial.println();
     // DO
     Serial.print("DO: ");
@@ -497,7 +464,7 @@ void upload_cloud() {
     ThingSpeak.setField(3, water_Tf);
     ThingSpeak.setField(5, humidity);
     ThingSpeak.setField(6, air_Tf);
-    ThingSpeak.setField(7, ec_reading);
+    ThingSpeak.setField(4, ec_reading);
 
     unsigned long time_interval = 0;                                    // variable for keeping track of how long the last successful update was
     // write fields to the ThingSpeak channel
