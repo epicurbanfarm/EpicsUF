@@ -7,7 +7,6 @@ Adafruit_NeoPixel pixels(NUMPIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 char* ssid = "WAVLINK-N"; // the name of the Wi-Fi, using my hotsot at school
 char* password = "epics@urbanfarm2018"; // the Wi-Fi password
-//char* username = "athajeb";
 int flag = 0;
 int count = 0;
 
@@ -29,8 +28,8 @@ void setup() {
         flag = 0;
         break;
       }
-  } 
-  if(WiFi.status() == WL_CONNECTED) flag = 2;
+    } 
+    if(WiFi.status() == WL_CONNECTED) flag = 2;
   }
 }
 //FFF000:yellow
