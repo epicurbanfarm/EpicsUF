@@ -84,8 +84,8 @@ boolean led_state = LOW;                    // keeps track of the current led st
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 //--Network--
-const char* ssid = "WAVLINK-N";
-const char* password = "epics@urbanfarm2018";
+const char* ssid = "ATT6VAgijs";
+const char* password = "t8+f3nqqvnqz";
 int flag = 0;
 int count = 0;
 
@@ -200,11 +200,21 @@ void setup() {
   delay(1000);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  if (! aht.begin()) {
-    flag = 1;
-
+  while(WiFi.status() != WL_CONNECTED){ //if it is still not connected to wifi, try again
+    delay(500);
+    count++;
+    if(count >= 10) {
+      if (WiFi.status() == WL_NO_SSID_AVAIL){
+        flag = 1;
+        break;
+      }
+      else if (count >= 100) {
+        flag = 0;
+        break;
+      }
+    } 
+    if(WiFi.status() == WL_CONNECTED) flag = 2;
   }
-
 
   // ThingSpeak
   ThingSpeak.begin(client);  // Initialize ThingSpeak
@@ -228,7 +238,22 @@ void setup() {
 
 void loop() {
   // none of these functions block or delay the execution
-  
+  if(flag == 2){//connected
+    pixels.fill(0xFF0000);
+    pixels.show();
+    delay(50); // wait half a second
+  }
+  if(flag == 1){
+    pixels.fill(0xFFF000);//no ssid available
+    pixels.show();
+    delay(100); // wait half a second
+  }
+  // turn off
+  if(flag == 0) {//failed 10 times
+    pixels.fill(0x000FFF);
+    pixels.show();
+    delay(100); // wait half a second
+  }
   // read sensors
   read_ezo();
   //read_analog_temp();
@@ -239,6 +264,7 @@ void loop() {
   upload_cloud();
   // Write to pump
   pump_write();
+  
 }
 
 // blinks a led on pin 13. this function returns immediately, if it is not yet time to blink
