@@ -87,8 +87,8 @@ boolean led_state = LOW;                    // keeps track of the current led st
 Adafruit_NeoPixel pixels(NUMPIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 //--Network--
-const char* ssid = "WAVLINK-N";
-const char* password = "redboat55";
+const char* ssid = "ATT6VAgijs";
+const char* password = "t8+f3nqqvnqz";
 int flag = 0;
 int count = 0;
 
@@ -204,7 +204,7 @@ void setup() {
   WiFi.disconnect(true);
   delay(1000);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid);//, password);
+  WiFi.begin(ssid, password);
 
   //humidity & air temp sensor setup
   aht.begin(); 
