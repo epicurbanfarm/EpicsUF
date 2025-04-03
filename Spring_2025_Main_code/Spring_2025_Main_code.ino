@@ -9,7 +9,7 @@
  * Alex Mate [Physical system and ThingSpeak / Spring 2022]
  * Nathan Joseph [Code and Hardware / Fall 2023-Fall 2024]
  * Franciska Vogel [Code and Hardware / Spring 2024]
- * Andrew Thajeb [WiFi-Network / Fall 2024]
+ * Andrew Thajeb [WiFi-Network / Fall 2024-Spring 2025]
  * 
  *
  * Description:
